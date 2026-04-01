@@ -1,5 +1,5 @@
 import os, requests
-from discord import SyncWebhook
+from discord import SyncWebhook, Embed
 
 # 1. WEBHOOKS AUS GITHUB SECRETS
 webhooks = {
@@ -8,21 +8,26 @@ webhooks = {
     "alerts": os.getenv("WEBHOOK_MARKET_ALERTS")
 }
 
-# 2. FILTER-REGELN PRO KATEGORIE
+# 2. FILTER-REGELN
 FILTER_RULES = {
     "charts": ["SOL", "SUI", "BTC", "ETH", "Solana", "Ethereum", "Bitcoin"],
     "alerts": ["SOL", "BTC", "Solana", "Bitcoin", "$SOL", "$BTC"],
-    "traders": [] # LEER = KEIN FILTER (Alles wird gepostet)
+    "traders": [] # Alles erlaubt
 }
 
-# 3. ZUORDNUNG DER ACCOUNTS
+# 3. ZUORDNUNG (Alle 9 Accounts integriert)
 CATEGORIES = {
+    # Kategorie: charts
     "Finora_EN": "charts",
+    
+    # Kategorie: traders
     "cryptotony_": "traders",
     "killaxbt": "traders",
     "astekz": "traders",
     "eliz883": "traders",
     "cryptobullet1": "traders",
+    
+    # Kategorie: alerts
     "whale_alert": "alerts",
     "lookonchain": "alerts", 
     "unusual_whales": "alerts"
@@ -34,33 +39,38 @@ def check_twitter():
         if not webhook_url: continue
         
         try:
-            url = f"https://syndication.twitter.com/srv/timeline-profile/screen-name/{account}"
-            res = requests.get(url, timeout=10).text
-            content_lower = res.lower()
+            # Wir nutzen eine Nitter-Instanz für RSS (kostenlos & inkl. Bilder)
+            rss_url = f"https://nitter.net/{account}/rss"
+            res = requests.get(rss_url, timeout=15).text
             
-            allowed_keywords = FILTER_RULES.get(cat, [])
-            should_send = False
-            found_kw = "ALL"
+            # Suche nach dem neuesten Eintrag und Bild
+            if "<item>" in res:
+                latest_post = res.split("<item>")[1]
+                title = latest_post.split("<title>")[1].split("</title>")[0]
+                link = latest_post.split("<link>")[1].split("</link>")[0]
+                
+                # Bild-Extraktion (Trick)
+                image_url = ""
+                if "src=\"" in latest_post:
+                    image_url = latest_post.split("src=\"")[1].split("\"")[0]
 
-            # FILTER-LOGIK
-            if not allowed_keywords:
-                # Kein Filter für Trader
-                should_send = True
-            else:
-                # Checke Keywords für Charts und Alerts
-                for kw in allowed_keywords:
-                    if kw.lower() in content_lower:
-                        should_send = True
-                        found_kw = kw.upper()
-                        break
-            
-            if should_send:
-                webhook = SyncWebhook.from_url(webhook_url)
-                prefix = f"🎯 **{found_kw}**" if found_kw != "ALL" else "✍️ **TRADER ALPHA**"
-                webhook.send(
-                    content=f"{prefix} bei **@{account}**\nLink: https://twitter.com/{account}",
-                    username=f"KING {cat.upper()}"
-                )
+                # Filter-Logik
+                allowed_keywords = FILTER_RULES.get(cat, [])
+                should_send = False
+                if not allowed_keywords or any(kw.lower() in title.lower() for kw in allowed_keywords):
+                    should_send = True
+
+                if should_send:
+                    webhook = SyncWebhook.from_url(webhook_url)
+                    embed = Embed(title=f"Alpha von @{account}", description=title, url=link, color=0x00ff00)
+                    if image_url:
+                        embed.set_image(url=image_url)
+                    
+                    webhook.send(
+                        content=f"🚀 **KING {cat.upper()} UPDATE**",
+                        embed=embed,
+                        username=f"KING {cat.upper()}"
+                    )
         except:
             continue
 
