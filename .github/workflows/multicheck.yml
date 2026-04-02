@@ -2,38 +2,41 @@ name: Twitter Alpha Autopilot
 
 on:
   schedule:
-    - cron: "*/15 * * * *" # Checkt alle 15 Minuten
-  workflow_dispatch:
+    - cron: "*/15 * * * *" # Checkt alle 15 Minuten automatisch
+  workflow_dispatch:      # Erlaubt dir den manuellen Start per Button
 
 jobs:
   run-bot:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write     # Wichtig, um die sent_tweets.json zu speichern
     steps:
-      - uses: actions/checkout@v4
-      
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          
-      - name: Install deps
-        run: pip install requests
-        
+
+      - name: Install dependencies
+        # Hier installieren wir ALLES, was multinews.py zum Überleben braucht
+        run: pip install requests discord.py
+
       - name: Run Twitter Bot
         env:
+          # Diese Namen müssen EXAKT so in deinen GitHub Secrets stehen
           WEBHOOK_LIVE_CHARTS: ${{ secrets.WEBHOOK_LIVE_CHARTS }}
           WEBHOOK_TWITTER_TRADER: ${{ secrets.WEBHOOK_TWITTER_TRADER }}
           WEBHOOK_MARKET_ALERTS: ${{ secrets.WEBHOOK_MARKET_ALERTS }}
-        # HIER WAR DER FEHLER: Der Name muss exakt zur Datei im Repo passen
+        # Hier rufen wir deine Datei auf
         run: python multinews.py 
 
-      - name: Save History
+      - name: Save History (Anti-Spam)
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          # Wir speichern die Datenbank, damit du keine doppelten Posts kriegst
-          git add sent_tweets.json || echo "Kein Update der Datenbank nötig"
+          # Speichert, welche Tweets wir schon gesendet haben
+          git add sent_tweets.json || echo "Keine neue Historie"
           git commit -m "Update tweet history [skip ci]" || echo "Nichts zum Committen"
           git push || echo "Push fehlgeschlagen"
