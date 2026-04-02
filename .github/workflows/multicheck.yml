@@ -1,24 +1,33 @@
-name: Twitter Intelligence
+name: Twitter Alpha Autopilot
+
 on:
   schedule:
-    - cron: '*/10 * * * *' # Alle 10 Minuten
-  workflow_dispatch:      # Zum manuellen Testen
+    - cron: "*/15 * * * *" # Alle 15 Minuten
+  workflow_dispatch:
 
 jobs:
-  check:
+  run-bot:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - name: Install deps
-        run: pip install requests discord-py
-      - name: Execute
+        run: pip install requests
+      - name: Run Twitter Bot
         env:
-          # Wir mappen deine echten Secret-Namen auf die Variablennamen im Python-Code
-          WEBHOOK_LIVE_CHARTS: ${{ secrets.LIVE_CHARTS }}
-          WEBHOOK_TWITTER_TRADER: ${{ secrets.TWITTER_TRADER }}
-          WEBHOOK_MARKET_ALERTS: ${{ secrets.MARKET_ALERTS }}
-        run: python multinews.py
+          WEBHOOK_LIVE_CHARTS: ${{ secrets.WEBHOOK_LIVE_CHARTS }}
+          WEBHOOK_TWITTER_TRADER: ${{ secrets.WEBHOOK_TWITTER_TRADER }}
+          WEBHOOK_MARKET_ALERTS: ${{ secrets.WEBHOOK_MARKET_ALERTS }}
+        run: python twitter_bot.py
+      - name: Save History
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add sent_tweets.json || echo "Kein Update"
+          git commit -m "Update tweet history [skip ci]" || echo "Nichts neu"
+          git push || echo "Push fehlgeschlagen"
