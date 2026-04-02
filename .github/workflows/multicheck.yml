@@ -2,7 +2,7 @@ name: Twitter Alpha Autopilot
 
 on:
   schedule:
-    - cron: "*/15 * * * *" # Alle 15 Minuten
+    - cron: "*/15 * * * *" # Checkt alle 15 Minuten
   workflow_dispatch:
 
 jobs:
@@ -12,22 +12,28 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+      
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          
       - name: Install deps
         run: pip install requests
+        
       - name: Run Twitter Bot
         env:
           WEBHOOK_LIVE_CHARTS: ${{ secrets.WEBHOOK_LIVE_CHARTS }}
           WEBHOOK_TWITTER_TRADER: ${{ secrets.WEBHOOK_TWITTER_TRADER }}
           WEBHOOK_MARKET_ALERTS: ${{ secrets.WEBHOOK_MARKET_ALERTS }}
-        run: python twitter_bot.py
+        # HIER WAR DER FEHLER: Der Name muss exakt zur Datei im Repo passen
+        run: python multinews.py 
+
       - name: Save History
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add sent_tweets.json || echo "Kein Update"
-          git commit -m "Update tweet history [skip ci]" || echo "Nichts neu"
+          # Wir speichern die Datenbank, damit du keine doppelten Posts kriegst
+          git add sent_tweets.json || echo "Kein Update der Datenbank nötig"
+          git commit -m "Update tweet history [skip ci]" || echo "Nichts zum Committen"
           git push || echo "Push fehlgeschlagen"
